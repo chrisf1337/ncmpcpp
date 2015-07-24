@@ -62,6 +62,7 @@ enum class Type
 	ResetSearchEngine, ShowMediaLibrary, ToggleMediaLibraryColumnsMode,
 	ShowPlaylistEditor, ShowTagEditor, ShowOutputs, ShowVisualizer,
 	ShowClock, ShowServerInfo,
+	ShowYTSearcher, ResetYTSearcher, StartYTSearching,
 	_numberOfActions // needed to dynamically calculate size of action array
 };
 
@@ -603,6 +604,15 @@ struct StartSearching: BaseAction
 private:
 	virtual bool canBeRun() OVERRIDE;
 	virtual void run() OVERRIDE;
+};
+
+struct StartYTSearching: BaseAction
+{
+    StartYTSearching(): BaseAction(Type::StartYTSearching, "start_yt_searching") { }
+
+private:
+    virtual bool canBeRun() OVERRIDE;
+    virtual void run() OVERRIDE;
 };
 
 struct SaveTagChanges: BaseAction
@@ -1158,6 +1168,15 @@ private:
 	virtual void run() OVERRIDE;
 };
 
+struct ShowYTSearcher: BaseAction
+{
+    ShowYTSearcher(): BaseAction(Type::ShowYTSearcher, "show_yt_searcher") { }
+
+private:
+    virtual bool canBeRun() OVERRIDE;
+    virtual void run() OVERRIDE;
+};
+
 struct ResetSearchEngine: BaseAction
 {
 	ResetSearchEngine(): BaseAction(Type::ResetSearchEngine, "reset_search_engine") { }
@@ -1165,6 +1184,15 @@ struct ResetSearchEngine: BaseAction
 private:
 	virtual bool canBeRun() OVERRIDE;
 	virtual void run() OVERRIDE;
+};
+
+struct ResetYTSearcher: BaseAction
+{
+    ResetYTSearcher(): BaseAction(Type::ResetYTSearcher, "reset_yt_searcher") { }
+
+private:
+    virtual bool canBeRun() OVERRIDE;
+    virtual void run() OVERRIDE;
 };
 
 struct ShowMediaLibrary: BaseAction

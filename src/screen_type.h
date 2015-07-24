@@ -44,6 +44,7 @@ enum class ScreenType {
 	Playlist,
 	PlaylistEditor,
 	SearchEngine,
+	YTSearcher,
 	SelectedItemsAdder,
 	ServerInfo,
 	SongInfo,

@@ -31,6 +31,7 @@
 #include "playlist.h"
 #include "playlist_editor.h"
 #include "search_engine.h"
+#include "ytsearcher.h"
 #include "sel_items_adder.h"
 #include "server_info.h"
 #include "song_info.h"
@@ -130,6 +131,8 @@ BaseScreen *toScreen(ScreenType st)
 			return myPlaylistEditor;
 		case ScreenType::SearchEngine:
 			return mySearcher;
+		case ScreenType::YTSearcher:
+		    return myYTSearcher;
 		case ScreenType::SelectedItemsAdder:
 			return mySelectedItemsAdder;
 		case ScreenType::ServerInfo:

@@ -210,7 +210,7 @@ void SearchEngine::enterPressed()
 	size_t option = w.choice();
 	if (option > ConstraintsNumber && option < SearchButton)
 		w.current()->value().buffer().clear();
-	
+
 	if (option < ConstraintsNumber)
 	{
 		Statusbar::ScopedLock slock;
@@ -356,10 +356,10 @@ void SearchEngine::Prepare()
 
 	for (auto &item : w)
 		item.setSelectable(false);
-	
+
 	w.at(ConstraintsNumber).setSeparator(true);
 	w.at(SearchButton-1).setSeparator(true);
-	
+
 	for (size_t i = 0; i < ConstraintsNumber; ++i)
 	{
 		std::string constraint = ConstraintsNames[i];
@@ -367,10 +367,10 @@ void SearchEngine::Prepare()
 		w[i].value().mkBuffer() << NC::Format::Bold << constraint << NC::Format::NoBold << ": ";
 		ShowTag(w[i].value().buffer(), itsConstraints[i]);
 	}
-	
+
 	w.at(ConstraintsNumber+1).value().mkBuffer() << NC::Format::Bold << "Search in:" << NC::Format::NoBold << ' ' << (Config.search_in_db ? "Database" : "Current playlist");
 	w.at(ConstraintsNumber+2).value().mkBuffer() << NC::Format::Bold << "Search mode:" << NC::Format::NoBold << ' ' << *SearchMode;
-	
+
 	w.at(SearchButton).value().mkBuffer() << "Search";
 	w.at(ResetButton).value().mkBuffer() << "Reset";
 }
@@ -397,7 +397,7 @@ void SearchEngine::Search()
 	}
 	if (constraints_empty)
 		return;
-	
+
 	if (Config.search_in_db && (SearchMode == &SearchModes[0] || SearchMode == &SearchModes[2])) // use built-in mpd searching
 	{
 		Mpd.StartSearch(SearchMode == &SearchModes[2]);
@@ -424,7 +424,9 @@ void SearchEngine::Search()
 		if (!itsConstraints[10].empty())
 			Mpd.AddSearch(MPD_TAG_COMMENT, itsConstraints[10]);
 		for (MPD::SongIterator s = Mpd.CommitSearchSongs(), end; s != end; ++s)
+		{
 			w.addItem(std::move(*s));
+		}
 		return;
 	}
 
@@ -516,7 +518,7 @@ void SearchEngine::Search()
 				|| !cmp(s->getGenre(), itsConstraints[0])
 				|| !cmp(s->getDate(), itsConstraints[0])
 				|| !cmp(s->getComment(), itsConstraints[0]);
-			
+
 			if (found && !itsConstraints[1].empty())
 				found = !cmp(s->getArtist(), itsConstraints[1]);
 			if (found && !itsConstraints[2].empty())
@@ -538,7 +540,7 @@ void SearchEngine::Search()
 			if (found && !itsConstraints[10].empty())
 				found = !cmp(s->getComment(), itsConstraints[10]);
 		}
-		
+
 		if (any_found && found)
 			w.addItem(*s);
 	}

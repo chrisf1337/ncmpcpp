@@ -29,16 +29,21 @@ fi
 dnl ================================
 dnl = checking for -std=c++0x flag =
 dnl ================================
-AC_MSG_CHECKING([whether compiler supports -std=c++0x])
+dnl AC_MSG_CHECKING([whether compiler supports -std=c++0x])
+AC_MSG_CHECKING([whether compiler supports -std=c++11])
 old_CXXFLAGS="$CXXFLAGS"
-CXXFLAGS="-std=c++0x"
+dnl CXXFLAGS="-std=c++0x"
+CXXFLAGS="-std=c++11"
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ ]])],
 	AC_MSG_RESULT([yes])
-		std_cpp0x="-std=c++0x",
+		dnl std_cpp0x="-std=c++0x",
+        std_cpp11x="-std=c++11",
 	AC_MSG_RESULT([no])
-		AC_MSG_ERROR([[Your compiler doesn't seem to support C++0x, please upgrade (GCC >= 4.6)]])
+		dnl AC_MSG_ERROR([[Your compiler doesn't seem to support C++0x, please upgrade (GCC >= 4.6)]])
+		AC_MSG_ERROR([[Your compiler doesn't seem to support C++11, please upgrade (GCC >= 4.6)]])
 )
-CXXFLAGS="$old_CXXFLAGS $std_cpp0x"
+dnl CXXFLAGS="$old_CXXFLAGS $std_cpp0x"
+CXXFLAGS="$old_CXXFLAGS $std_cpp11x"
 
 dnl ==========================================
 dnl = checking for initializer lists support =
@@ -135,7 +140,7 @@ dnl =============================
 AC_CHECK_HEADERS([boost/locale.hpp], ,
 	AC_MSG_ERROR(boost/locale.hpp is missing)
 )
-AC_CHECK_LIB(boost_locale$BOOST_LIB_SUFFIX, main, LIBS="$LIBS -lboost_locale$BOOST_LIB_SUFFIX",
+AC_CHECK_LIB(boost_locale-mt$BOOST_LIB_SUFFIX, main, LIBS="$LIBS -lboost_locale-mt$BOOST_LIB_SUFFIX",
 	AC_MSG_ERROR([no boost.locale library found])
 )
 
@@ -194,7 +199,7 @@ AC_DEFINE([BOOST_THREAD_VERSION], [3], [require boost.thread v3])
 AC_CHECK_HEADERS([boost/thread.hpp], ,
 	AC_MSG_ERROR([boost/thread.hpp is missing or your boost version is too old (boost.thread v3 is required)])
 )
-AC_CHECK_LIB(boost_thread$BOOST_LIB_SUFFIX, main, LIBS="$LIBS -lboost_thread$BOOST_LIB_SUFFIX",
+AC_CHECK_LIB(boost_thread-mt$BOOST_LIB_SUFFIX, main, LIBS="$LIBS -lboost_thread-mt$BOOST_LIB_SUFFIX",
 	AC_MSG_ERROR([no boost.thread library found])
 )
 
@@ -340,6 +345,10 @@ if test "$taglib" != "no" ; then
 		fi
 	fi
 fi
+
+LDFLAGS="$LDFLAGS -L/usr/local/opt/readline/lib -L/usr/local/Cellar/python3/3.4.3_2/Frameworks/Python.framework/Versions/3.4/lib/python3.4/config-3.4m -framework CoreFoundation -L/usr/local/Cellar/curlpp/0.7.3/lib"
+LIBS="$LIBS -lpython3.4m -ldl -lcurlpp -lstdc++ -lcurl"
+CPPFLAGS="$CPPFLAGS -I/usr/local/opt/readline/include -I/usr/local/Cellar/python3/3.4.3_2/Frameworks/Python.framework/Versions/3.4/include/python3.4m -I/usr/local/Cellar/curlpp/0.7.3/include -I/usr/local/Cellar/curlpp/0.7.3/include/curlpp"
 
 AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile])
 AC_OUTPUT

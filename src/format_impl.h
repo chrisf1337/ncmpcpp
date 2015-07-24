@@ -23,12 +23,17 @@
 
 #include <boost/variant.hpp>
 
+#include <iostream>
+#include <typeinfo>
+
 #include "format.h"
 #include "menu.h"
 #include "song.h"
 #include "strbuffer.h"
 #include "utility/functional.h"
 #include "utility/wide_string.h"
+
+#include "ytsong.h"
 
 namespace Format {
 
@@ -116,6 +121,16 @@ struct Printer: boost::static_visitor<Result>
 		StringT tags;
 		if (m_flags & Flags::Tag && m_song != nullptr)
 		{
+			// std::clog << typeid(m_song).name() << std::endl;
+			// if (dynamic_cast<const YTSong *>(m_song))
+			// {
+			// 	std::clog << "Cast succeeded" << std::endl;
+			// }
+			// else
+			// {
+			// 	std::clog << "Cast failed" << std::endl;
+			// }
+
 			tags = convertString<CharT, char>::apply(
 				m_song->getTags(st.function())
 			);
@@ -229,8 +244,14 @@ private:
 template <typename CharT, typename VisitorT>
 void visit(VisitorT &visitor, const AST<CharT> &ast)
 {
+	int count = 0;
 	for (const auto &ex : ast.base())
+	{
+		count++;
+		std::clog << ex.type().name() << std::endl;
+		std::clog << ex.which() << std::endl;
 		boost::apply_visitor(visitor, ex);
+	}
 }
 
 template <typename CharT, typename ItemT>

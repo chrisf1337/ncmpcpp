@@ -201,7 +201,7 @@ std::string Song::getPriority(unsigned idx) const
 	return boost::lexical_cast<std::string>(getPrio());
 }
 
-std::string MPD::Song::getTags(GetFunction f) const
+std::string Song::getTags(GetFunction f) const
 {
 	assert(m_song);
 	unsigned idx = 0;
@@ -270,7 +270,7 @@ std::string Song::ShowTime(unsigned length)
 	int minutes = length/60;
 	length -= minutes*60;
 	int seconds = length;
-	
+
 	std::string result;
 	if (hours > 0)
 		result = (boost::format("%d:%02d:%02d") % hours % minutes % seconds).str();

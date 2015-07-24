@@ -26,6 +26,7 @@
 #include "menu.h"
 #include "mutable_song.h"
 #include "search_engine.h"
+#include "ytsearcher.h"
 #include "song_list.h"
 
 namespace Display {
@@ -41,6 +42,8 @@ void Tags(NC::Menu<MPD::MutableSong> &menu);
 void SEItems(NC::Menu<SEItem> &menu, const SongList &list);
 
 void Items(NC::Menu<MPD::Item> &menu, const SongList &list);
+
+void YTItems(NC::Menu<YTItem> &menu, const SongList &list);
 
 }
 

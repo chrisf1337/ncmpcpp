@@ -9,6 +9,7 @@
 
 #include <array>
 #include <boost/range/detail/any_iterator.hpp>
+#include <boost/filesystem.hpp>
 #include <iomanip>
 
 #include "display.h"
@@ -44,6 +45,8 @@
 #include <rapidjson/document.h>
 
 using namespace rapidjson;
+namespace fs = boost::filesystem;
+
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems)
 {
@@ -107,6 +110,39 @@ void checkError(PyObject *obj)
     {
         PyErr_Print();
     }
+}
+
+void YTSearcher::downloadYTSong(const std::string &videoId)
+{
+    std::cerr << "Downloading video " << videoId << std::endl;
+    Statusbar::print("Downloading video...");
+
+    fs::path mpd_music_dir(Config.mpd_music_dir);
+    fs::path ytMusicDir(mpd_music_dir / "ytmusic");
+    assert(fs::exists(ytMusicDir) && fs::is_directory(ytMusicDir));
+
+    PyObject *url = PyUnicode_FromString(videoId.c_str());
+    PyObject *pafyVideo = PyObject_CallFunctionObjArgs(pafy_fNew, url, NULL);
+    checkError(pafyVideo);
+    PyObject *title = PyObject_GetAttrString(pafyVideo, "title");
+    checkError(title);
+    PyObject *fGetBestAudio = PyObject_GetAttrString(pafyVideo, "getbestaudio");
+    checkError(fGetBestAudio);
+    PyObject *bestAudio = PyObject_CallFunctionObjArgs(fGetBestAudio, NULL);
+    checkError(bestAudio);
+    PyObject *fDownload = PyObject_GetAttrString(bestAudio, "download");
+    checkError(fDownload);
+    PyObject *kw = PyDict_New();
+    checkError(kw);
+    PyObject *pyStr_ytMusicDir = PyUnicode_FromString(ytMusicDir.string().c_str());
+    checkError(pyStr_ytMusicDir);
+    PyDict_SetItemString(kw, "filepath", pyStr_ytMusicDir);
+    PyDict_SetItemString(kw, "quiet", Py_True);
+    PyObject *emptyTuple = PyTuple_New(0);
+    checkError(emptyTuple);
+    PyObject_Call(fDownload, emptyTuple, kw);
+    Statusbar::print("Download complete.");
+    Mpd.UpdateDirectory("ytmusic");
 }
 
 // test comment
@@ -212,7 +248,7 @@ YTSearcher::YTSearcher()
     w.setSelectedSuffix(Config.selected_item_suffix);
     // SearchMode = &SearchModes[Config.search_engine_default_search_mode];
 
-    // initialize pafy
+    // Initialize pafy
     PyObject *pName;
     Py_Initialize();
 
@@ -227,6 +263,47 @@ YTSearcher::YTSearcher()
     checkError(pafy);
     pafy_fNew = PyObject_GetAttrString(pafy, "new");
     checkError(pafy_fNew);
+
+    // Check for the existence of the ytmusic dir inside mpd_music_dir and create it if it does not exist
+    fs::path mpd_music_dir(Config.mpd_music_dir);
+    fs::path ytMusicDir(mpd_music_dir / "ytmusic");
+    if (fs::exists(ytMusicDir))
+    {
+        if (!fs::is_directory(ytMusicDir))
+        {
+            std::cerr << "Error: " << ytMusicDir.string() << " already exists and is not a directory." << std::endl;
+            return;
+        }
+    }
+    else
+    {
+        fs::create_directory(ytMusicDir);
+    }
+
+    // populate vector with paths of already downloaded songs
+    assert(fs::exists(ytMusicDir) && fs::is_directory(ytMusicDir));
+    assert(downloadedYTSongPaths.empty() && downloadedYTSongTitles.empty());
+    try
+    {
+        for (auto it = fs::directory_iterator(ytMusicDir); it != fs::directory_iterator(); ++it)
+        {
+            if (it->path().extension() == ".m4a" || it->path().extension() == ".ogg")
+            {
+                downloadedYTSongPaths.insert(it->path().relative_path());
+                downloadedYTSongTitles.insert(it->path().stem().string());
+            }
+        }
+    }
+    catch (const fs::filesystem_error &ex)
+    {
+        std::cerr << ex.what() << std::endl;
+    }
+
+    std::cerr << "Downloaded songs" << std::endl;
+    for (auto it = std::begin(downloadedYTSongPaths); it != std::end(downloadedYTSongPaths); ++it)
+    {
+        std::cerr << *it << std::endl;
+    }
 }
 
 void YTSearcher::resize()
@@ -326,7 +403,8 @@ void YTSearcher::enterPressed()
     }
     else
     {
-        addSongToPlaylist(w.current()->value().song(), true);
+        downloadYTSong(w.current()->value().ytSong().m_video.id);
+        // addSongToPlaylist(w.current()->value().song(), true);
     }
 }
 
@@ -435,7 +513,7 @@ void YTSearcher::Search()
         return;
 
     std::string q = queryToString(itsConstraints[0]);
-    std::clog << q << std::endl;
+    std::cerr << q << std::endl;
 
     curlpp::Easy request;
     std::vector<std::string> videoIds;
@@ -471,14 +549,13 @@ void YTSearcher::Search()
             std::string videoId = (*itr)["id"]["videoId"].GetString();
             video.id = videoId;
             videoIds.push_back(videoId);
-            std::clog << videoId << ": " << videoTitle << std::endl;
             video.duration = std::make_tuple(0, 0, 0);
             videos.push_back(video);
         }
     }
 
     std::string videoIdsString = videoIdsToString(videoIds);
-    std::clog << videoIdsString << std::endl;
+    std::cerr << videoIdsString << std::endl;
 
     os.str("");
     os << "https://www.googleapis.com/youtube/v3/videos?part=snippet%2CcontentDetails&id=" << videoIdsString
@@ -487,7 +564,6 @@ void YTSearcher::Search()
 
     os.str("");
     os << request;
-    std::clog << os.str() << std::endl;
 
     document.Parse(os.str().c_str());
     assert(document.IsObject());
@@ -502,14 +578,8 @@ void YTSearcher::Search()
         assert(itr->HasMember("contentDetails"));
         assert((*itr)["contentDetails"].HasMember("duration"));
         std::string duration = (*itr)["contentDetails"]["duration"].GetString();
-        std::clog << duration << std::endl;
         std::regex_search(duration, match, re);
         assert(match.size() == 3 || match.size() == 5 || match.size() == 7);
-        std::clog << "matches for '" << duration << "'" << std::endl;
-        for (size_t i = 0; i < match.size(); i++)
-        {
-            std::clog << i << ": " << match[i] << std::endl;
-        }
         int hours = 0;
         int minutes = 0;
         int seconds = 0;
@@ -529,12 +599,28 @@ void YTSearcher::Search()
         videosIndex++;
     }
 
+    for (auto it = downloadedYTSongTitles.begin(); it != downloadedYTSongTitles.end(); ++it)
+    {
+        std::cerr << *it << std::endl;
+    }
+
     for (auto it = videos.begin(); it != videos.end(); ++it)
     {
-        std::clog << it->title << " (" << std::get<0>(it->duration) << ":" << std::setfill('0') << std::setw(2)
+        std::cerr << it->title << " (" << std::get<0>(it->duration) << ":" << std::setfill('0') << std::setw(2)
                   << std::get<1>(it->duration) << ":" << std::get<2>(it->duration) << ")" << std::endl;
-        YTItem ytItem(*it);
-        w.addItem(std::move(ytItem));
+        auto range = downloadedYTSongTitles.equal_range(it->title);
+        std::cerr << std::distance(std::get<0>(range), std::get<1>(range)) << std::endl;
+        if (std::distance(std::get<0>(range), std::get<1>(range)) != 0)
+        {
+            // If the song with the given title already exists in the mpd database, initialize the YTItem using a
+            // MPD::Song rather than a YTSong.
+            std::cerr << it->title << " is already in the database" << std::endl;
+        }
+        else
+        {
+            YTItem ytItem(*it);
+            w.addItem(std::move(ytItem));
+        }
     }
 
 
@@ -551,7 +637,7 @@ void YTSearcher::Search()
     // PyObject *bestAudioUrl = PyObject_GetAttrString(bestAudio, "url");
     // checkError(bestAudioUrl);
     // std::string bestAudioUrlString(PyUnicode_AsUTF8(bestAudioUrl));
-    // std::clog << bestAudioUrlString << std::endl;
+    // std::cerr << bestAudioUrlString << std::endl;
     return;
 }
 

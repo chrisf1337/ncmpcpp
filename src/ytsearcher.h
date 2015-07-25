@@ -19,6 +19,7 @@
 #include "song_list.h"
 
 #include <curlpp/cURLpp.hpp>
+#include <boost/filesystem.hpp>
 
 #include "ytsong.h"
 
@@ -41,14 +42,16 @@ struct YTItem
         return *m_buffer;
     }
 
+    // Slightly hacky: Returns true if this is a MPD::Song or a YTSong.
     bool isSong() const { return m_is_song; }
 
     NC::Buffer &buffer() { assert(!m_is_song && m_buffer); return *m_buffer; }
     MPD::Song &song() { assert(m_is_song); return m_song; }
+    YTSong &ytSong() {assert(m_is_song); return m_ytSong;}
 
     const NC::Buffer &buffer() const { assert(!m_is_song && m_buffer); return *m_buffer; }
-    // const MPD::Song &song() const { assert(m_is_song); return m_song; }
-    const YTSong &song() const {assert(m_is_song); return m_ytSong;}
+    const MPD::Song &song() const { assert(m_is_song); return m_song; }
+    const YTSong &ytSong() const {assert(m_is_song); return m_ytSong;}
 
     YTItem &operator=(const YTItem &se) {
         if (this == &se)
@@ -124,6 +127,8 @@ private:
     void Prepare();
     void Search();
 
+    void downloadYTSong(const std::string &videoId);
+
     Regex::ItemFilter<YTItem> m_search_predicate;
 
     // const char **SearchMode;
@@ -140,6 +145,9 @@ private:
 
     PyObject *pafy;
     PyObject *pafy_fNew;
+
+    std::set<boost::filesystem::path> downloadedYTSongPaths;
+    std::set<std::string> downloadedYTSongTitles;
 };
 
 extern YTSearcher *myYTSearcher;

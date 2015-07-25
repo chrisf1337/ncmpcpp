@@ -14,13 +14,3 @@ missing
 src/.deps/
 src/ncmpcpp
 stamp-h1
-
-target
-GPATH
-GRTAGS
-GTAGS
-.autotools
-.cproject
-.project
-.settings
-compile

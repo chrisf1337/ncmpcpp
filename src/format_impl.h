@@ -121,16 +121,6 @@ struct Printer: boost::static_visitor<Result>
 		StringT tags;
 		if (m_flags & Flags::Tag && m_song != nullptr)
 		{
-			// std::clog << typeid(m_song).name() << std::endl;
-			// if (dynamic_cast<const YTSong *>(m_song))
-			// {
-			// 	std::clog << "Cast succeeded" << std::endl;
-			// }
-			// else
-			// {
-			// 	std::clog << "Cast failed" << std::endl;
-			// }
-
 			tags = convertString<CharT, char>::apply(
 				m_song->getTags(st.function())
 			);
@@ -248,8 +238,6 @@ void visit(VisitorT &visitor, const AST<CharT> &ast)
 	for (const auto &ex : ast.base())
 	{
 		count++;
-		std::clog << ex.type().name() << std::endl;
-		std::clog << ex.which() << std::endl;
 		boost::apply_visitor(visitor, ex);
 	}
 }

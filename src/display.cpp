@@ -410,10 +410,10 @@ void Display::YTItems(NC::Menu<YTItem> &menu, const SongList &list)
 		switch (Config.search_engine_display_mode)
 		{
 			case DisplayMode::Classic:
-				showSongs(menu, yi.song(), list, Config.song_list_format);
+				showSongs(menu, yi.ytSong(), list, Config.song_list_format);
 				break;
 			case DisplayMode::Columns:
-				showSongsInColumns(menu, yi.song(), list);
+				showSongsInColumns(menu, yi.ytSong(), list);
 				break;
 		}
 	}

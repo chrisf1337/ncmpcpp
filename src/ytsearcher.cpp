@@ -122,27 +122,17 @@ void YTSearcher::downloadYTSong(const std::string &videoId)
     assert(fs::exists(ytMusicDir) && fs::is_directory(ytMusicDir));
 
     PyObject *url = PyUnicode_FromString(videoId.c_str());
-    PyObject *pafyVideo = PyObject_CallFunctionObjArgs(pafy_fNew, url, NULL);
-    checkError(pafyVideo);
-    PyObject *title = PyObject_GetAttrString(pafyVideo, "title");
-    checkError(title);
-    PyObject *fGetBestAudio = PyObject_GetAttrString(pafyVideo, "getbestaudio");
-    checkError(fGetBestAudio);
-    PyObject *bestAudio = PyObject_CallFunctionObjArgs(fGetBestAudio, NULL);
-    checkError(bestAudio);
-    PyObject *fDownload = PyObject_GetAttrString(bestAudio, "download");
-    checkError(fDownload);
-    PyObject *kw = PyDict_New();
-    checkError(kw);
-    PyObject *pyStr_ytMusicDir = PyUnicode_FromString(ytMusicDir.string().c_str());
-    checkError(pyStr_ytMusicDir);
-    PyDict_SetItemString(kw, "filepath", pyStr_ytMusicDir);
-    PyDict_SetItemString(kw, "quiet", Py_True);
-    PyObject *emptyTuple = PyTuple_New(0);
-    checkError(emptyTuple);
-    PyObject_Call(fDownload, emptyTuple, kw);
+    PyObject *fDownload = PyObject_GetAttrString(ydl, "download");
+    PyObject *pUrls = PyList_New(0);
+    PyList_Append(pUrls, url);
+    PyObject_CallFunctionObjArgs(fDownload, pUrls, NULL);
+
     Statusbar::print("Download complete.");
     Mpd.UpdateDirectory("ytmusic");
+
+    Py_DECREF(url);
+    Py_DECREF(fDownload);
+    Py_DECREF(pUrls);
 }
 
 // test comment
@@ -248,22 +238,6 @@ YTSearcher::YTSearcher()
     w.setSelectedSuffix(Config.selected_item_suffix);
     // SearchMode = &SearchModes[Config.search_engine_default_search_mode];
 
-    // Initialize pafy
-    PyObject *pName;
-    Py_Initialize();
-
-    const wchar_t *wArgv = L"./pafy_test";
-    wchar_t *wArgv_copy = wcsdup(wArgv);
-    PySys_SetArgv(1, &wArgv_copy);
-
-    pName = PyUnicode_DecodeFSDefault("pafy");
-
-    pafy = PyImport_Import(pName);
-    Py_DECREF(pName);
-    checkError(pafy);
-    pafy_fNew = PyObject_GetAttrString(pafy, "new");
-    checkError(pafy_fNew);
-
     // Check for the existence of the ytmusic dir inside mpd_music_dir and create it if it does not exist
     fs::path mpd_music_dir(Config.mpd_music_dir);
     fs::path ytMusicDir(mpd_music_dir / "ytmusic");
@@ -282,15 +256,14 @@ YTSearcher::YTSearcher()
 
     // populate vector with paths of already downloaded songs
     assert(fs::exists(ytMusicDir) && fs::is_directory(ytMusicDir));
-    assert(downloadedYTSongPaths.empty() && downloadedYTSongTitles.empty());
+    assert(dlYTSongTitlesPaths.empty());
     try
     {
         for (auto it = fs::directory_iterator(ytMusicDir); it != fs::directory_iterator(); ++it)
         {
             if (it->path().extension() == ".m4a" || it->path().extension() == ".ogg")
             {
-                downloadedYTSongPaths.insert(it->path().relative_path());
-                downloadedYTSongTitles.insert(it->path().stem().string());
+                dlYTSongTitlesPaths.insert(std::make_pair(it->path().stem().string(), it->path().relative_path()));
             }
         }
     }
@@ -300,10 +273,60 @@ YTSearcher::YTSearcher()
     }
 
     std::cerr << "Downloaded songs" << std::endl;
-    for (auto it = std::begin(downloadedYTSongPaths); it != std::end(downloadedYTSongPaths); ++it)
+    for (auto it = std::begin(dlYTSongTitlesPaths); it != std::end(dlYTSongTitlesPaths); ++it)
     {
-        std::cerr << *it << std::endl;
+        std::cerr << it->first << std::endl;
     }
+
+    // Initialize youtube-dl
+    PyObject *pName;
+    Py_Initialize();
+
+    const wchar_t *wArgv = L"./pafy_test";
+    wchar_t *wArgv_copy = wcsdup(wArgv);
+    PySys_SetArgv(1, &wArgv_copy);
+
+    pName = PyUnicode_FromString("youtube_dl");
+
+    PyObject *youtube_dl = PyImport_Import(pName);
+    checkError(youtube_dl);
+    Py_DECREF(pName);
+
+    // Set up youtube-dl options
+    PyObject *ydl_opts = PyDict_New();
+
+    // Strings
+    PyObject *pFormat = PyUnicode_FromString("bestaudio/best");
+    PyObject *pKey = PyUnicode_FromString("FFmpegExtractAudio");
+    PyObject *pDefault_Search = PyUnicode_FromString("ytsearch");
+    std::string outtmpl(ytMusicDir.string() + "/%(title)s.%(ext)s");
+    PyObject *pOuttmpl = PyUnicode_FromString(outtmpl.c_str());
+
+    // postprocessors list
+    PyObject *pPostprocessorsList = PyList_New(0);
+    PyObject *pPostprocessorsDict = PyDict_New();
+    PyDict_SetItemString(pPostprocessorsDict, "key", pKey);
+    PyList_Append(pPostprocessorsList, pPostprocessorsDict);
+
+    PyDict_SetItemString(ydl_opts, "format", pFormat);
+    PyDict_SetItemString(ydl_opts, "postprocessors", pPostprocessorsList);
+    PyDict_SetItemString(ydl_opts, "default_search", pDefault_Search);
+    PyDict_SetItemString(ydl_opts, "outtmpl", pOuttmpl);
+    PyDict_SetItemString(ydl_opts, "quiet", Py_True);
+    PyDict_SetItemString(ydl_opts, "no_warnings", Py_True);
+
+    PyObject *ydlConstructor = PyObject_GetAttrString(youtube_dl, "YoutubeDL");
+    ydl = PyObject_CallFunctionObjArgs(ydlConstructor, ydl_opts, NULL);
+
+    Py_DECREF(youtube_dl);
+    Py_DECREF(ydl_opts);
+    Py_DECREF(pFormat);
+    Py_DECREF(pKey);
+    Py_DECREF(pDefault_Search);
+    Py_DECREF(pOuttmpl);
+    Py_DECREF(pPostprocessorsList);
+    Py_DECREF(pPostprocessorsDict);
+    Py_DECREF(ydlConstructor);
 }
 
 void YTSearcher::resize()
@@ -599,22 +622,27 @@ void YTSearcher::Search()
         videosIndex++;
     }
 
-    for (auto it = downloadedYTSongTitles.begin(); it != downloadedYTSongTitles.end(); ++it)
+    for (auto it = std::begin(dlYTSongTitlesPaths); it != std::end(dlYTSongTitlesPaths); ++it)
     {
-        std::cerr << *it << std::endl;
+        std::cerr << it->first << std::endl;
     }
 
     for (auto it = videos.begin(); it != videos.end(); ++it)
     {
         std::cerr << it->title << " (" << std::get<0>(it->duration) << ":" << std::setfill('0') << std::setw(2)
                   << std::get<1>(it->duration) << ":" << std::get<2>(it->duration) << ")" << std::endl;
-        auto range = downloadedYTSongTitles.equal_range(it->title);
-        std::cerr << std::distance(std::get<0>(range), std::get<1>(range)) << std::endl;
-        if (std::distance(std::get<0>(range), std::get<1>(range)) != 0)
+        auto findResult = std::find_if(std::begin(dlYTSongTitlesPaths), std::end(dlYTSongTitlesPaths),
+                                       [&] (const std::pair<std::string, fs::path> &pair) {
+                                           return pair.first == it->title;
+                                       });
+        if (findResult != std::end(dlYTSongTitlesPaths))
         {
             // If the song with the given title already exists in the mpd database, initialize the YTItem using a
             // MPD::Song rather than a YTSong.
-            std::cerr << it->title << " is already in the database" << std::endl;
+            MPD::Song song = Mpd.GetSong("ytmusic/[Electro] - Nitro Fun - Final Boss [Monstercat Release].ogg");
+            std::cerr << song.getTitle() << std::endl;
+            std::cerr << it->title << " is already in the database at " << findResult->second << std::endl;
+
         }
         else
         {

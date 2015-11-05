@@ -143,11 +143,9 @@ private:
 
     static curlpp::Cleanup cleaner;
 
-    PyObject *pafy;
-    PyObject *pafy_fNew;
+    PyObject *ydl;
 
-    std::set<boost::filesystem::path> downloadedYTSongPaths;
-    std::set<std::string> downloadedYTSongTitles;
+    std::set<std::pair<std::string, boost::filesystem::path> > dlYTSongTitlesPaths;
 };
 
 extern YTSearcher *myYTSearcher;
